@@ -3,35 +3,31 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-//agregar mas dependencias
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\LoginAlertMail;
 
 class AuthController extends Controller
 {
-    //Funciones de nuestros controllers 
     public function showRegister(){
         return view('register');
     }
 
     public function register(Request $request){
-        //validamos
         $request->validate([
-            'name'=> 'required|string|max:255',
-            'email'=> 'required|email|unique:users,email',
-            'password'=> 'required|min:8|confirmed',
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|min:8|confirmed',
         ]);
 
-        //Creamos usuario
         User::create([
-            'name'=> $request->name,
-            'email'=> $request->email,
-            'password'=> Hash::make($request->password),
-
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
         ]);
 
-        //Redirigir a login
         return redirect('/login')->with('success', 'Usuario creado correctamente');
     }
     
@@ -41,18 +37,22 @@ class AuthController extends Controller
 
     public function login(Request $request){
         $credentials = $request->validate([
-            'email'=> 'required | email',
-            'password'=> 'required',
+            'email' => 'required|email',
+            'password' => 'required',
         ]);
 
-        //attempt /Intento de login (si todo esta bn)
         if(Auth::attempt($credentials)){
             $request->session()->regenerate();
+
+            // Enviar correo de alerta al iniciar sesión
+            Mail::to(Auth::user()->email)->send(new LoginAlertMail(Auth::user()));
+
             return redirect('/dashboard');
         }
 
-        //si no es valido nos manda atrás
-        return back()->withErrors(['email'=>"Credenciales Incorrectas"])->onlyInput('email');
+        return back()->withErrors([
+            'email' => 'Credenciales incorrectas'
+        ])->onlyInput('email');
     }
 
     public function logout(Request $request){
@@ -61,5 +61,4 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
         return redirect('/login');
     }
-
 }
